@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Đặt vé xem phim</title>
+  <style>
+    body { font-family: Arial; text-align: center; }
+    #movies { margin: 20px; }
+    #seats { 
+      display: grid; 
+      grid-template-columns: repeat(4, 50px); 
+      gap: 5px; 
+      justify-content: center; 
+      margin: 20px; 
+    }
+    .seat { 
+      width: 50px; 
+      height: 50px; 
+      border: none; 
+      cursor: pointer; 
+    }
+    .seat.available { background: green; color: white; }
+    .seat.booked { background: red; color: white; cursor: not-allowed; }
+    .seat.selected { border: 2px solid blue; }
+    #book-btn { padding: 10px 20px; cursor: pointer; }
+    #error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Đặt vé xem phim</h1>
+  <div id="movies"></div>
+  <h2>Ghế (Suất chiếu 1)</h2>
+  <div id="seats"></div>
+  <div id="error"></div>
+  <button id="book-btn" onclick="bookTicket()">Đặt vé</button>
+  <script>
+    let selectedSeat = null;
+
+    // Lấy danh sách phim
+    fetch('http://localhost:3000/movies')
+      .then(res => {
+        if (!res.ok) throw new Error('Lỗi khi lấy phim: ' + res.status);
+        return res.json();
+      })
+      .then(data => {
+        if (!data.length) {
+          document.getElementById('error').innerText = 'Không có phim nào!';
+          return;
+        }
+        document.getElementById('movies').innerHTML = data.map(m => 
+          `<div>${m.title} - ${m.time} - ${m.cinema}</div>`
+        ).join('');
+      })
+      .catch(err => {
+        document.getElementById('error').innerText = err.message;
+        console.error(err);
+      });
+
+    // Lấy trạng thái ghế
+    fetch('http://localhost:3000/seats/1')
+      .then(res => {
+        if (!res.ok) throw new Error('Lỗi khi lấy ghế: ' + res.status);
+        return res.json();
+      })
+      .then(data => {
+        if (!data.length) {
+          document.getElementById('error').innerText = 'Không có ghế nào!';
+          return;
+        }
+        document.getElementById('seats').innerHTML = data.map(s => 
+          `<button class="seat ${s.booked ? 'booked' : 'available'}" 
+                   ${s.booked ? 'disabled' : ''} 
+                   onclick="selectSeat('${s._id}')">${s.seatNumber}</button>`
+        ).join('');
+      })
+      .catch(err => {
+        document.getElementById('error').innerText = err.message;
+        console.error(err);
+      });
+
+    // Chọn ghế
+    function selectSeat(seatId) {
+      selectedSeat = seatId;
+      document.querySelectorAll('.seat').forEach(btn => btn.classList.remove('selected'));
+      document.querySelector(`button[onclick="selectSeat('${seatId}')"]`).classList.add('selected');
+    }
+
+    // Đặt vé
+    function bookTicket() {
+      if (!selectedSeat) {
+        document.getElementById('error').innerText = 'Vui lòng chọn ghế!';
+        return;
+      }
+      fetch('http://localhost:3000/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ showtimeId: 1, seatId: selectedSeat })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Lỗi khi đặt vé: ' + res.status);
+          return res.json();
+        })
+        .then(data => {
+          document.getElementById('error').innerText = data.message;
+          if (data.message === 'Đặt vé thành công!') {
+            location.reload(); // Tải lại để cập nhật ghế
+          }
+        })
+        .catch(err => {
+          document.getElementById('error').innerText = err.message;
+          console.error(err);
+        });
+    }
+  </script>
+</body>
+</html>
