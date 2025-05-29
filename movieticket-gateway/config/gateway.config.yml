@@ -1,0 +1,79 @@
+http:
+  port: 8080
+admin:
+  port: 9876
+  host: localhost
+apiEndpoints:
+  authRegister:
+    host: localhost
+    paths: '/auth/register'
+  authLogin:
+    host: localhost
+    paths: '/auth/login'
+  bookingCreate:
+    host: localhost
+    paths: '/booking-ticket/create'
+  bookingMyBookings:
+    host: localhost
+    paths: '/booking-ticket/my-bookings'
+  bookingAllBookings:
+    host: localhost
+    paths: '/booking-ticket/all-bookings'
+serviceEndpoints:
+  authService:
+    url: 'http://localhost:3001'
+  bookingService:
+    url: 'http://localhost:3002'
+policies:
+  - proxy
+  - jwt
+pipelines:
+  authRegisterPipeline:
+    apiEndpoints:
+      - authRegister
+    policies:
+      - proxy:
+          - action:
+              serviceEndpoint: authService
+              changeOrigin: true
+  authLoginPipeline:
+    apiEndpoints:
+      - authLogin
+    policies:
+      - proxy:
+          - action:
+              serviceEndpoint: authService
+              changeOrigin: true
+  bookingCreatePipeline:
+    apiEndpoints:
+      - bookingCreate
+    policies:
+      - jwt:
+          - action:
+              secretOrPublicKey: ${JWT_SECRET}
+      - proxy:
+          - action:
+              serviceEndpoint: bookingService
+              changeOrigin: true
+  bookingMyBookingsPipeline:
+    apiEndpoints:
+      - bookingMyBookings
+    policies:
+      - jwt:
+          - action:
+              secretOrPublicKey: ${JWT_SECRET}
+      - proxy:
+          - action:
+              serviceEndpoint: bookingService
+              changeOrigin: true
+  bookingAllBookingsPipeline:
+    apiEndpoints:
+      - bookingAllBookings
+    policies:
+      - jwt:
+          - action:
+              secretOrPublicKey: ${JWT_SECRET}
+      - proxy:
+          - action:
+              serviceEndpoint: bookingService
+              changeOrigin: true

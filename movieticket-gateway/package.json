@@ -1,0 +1,13 @@
+{
+  "name": "movieticket-gateway",
+  "version": "1.0.0",
+  "description": "Express Gateway for MOVIETICKET",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express-gateway": "^1.16.9",
+    "dotenv": "^16.0.0"
+  }
+}

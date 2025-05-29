@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const connectDB = require('./config/db');
 const authRoute = require('./src/routes/authRoute');
@@ -15,8 +16,8 @@ app.use('/auth', authRoute);
 
 
 // Khởi động server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server is running on port http://localhost${PORT}/auth`);
+  console.log(`Server is running on port http://localhost:${PORT}/auth`);
   console.log('Auth service is running');
 });

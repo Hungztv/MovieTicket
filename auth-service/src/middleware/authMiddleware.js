@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = 'your_jwt_secret_key'; // Thay bằng key bí mật của bạn
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const authMiddleware = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1]; // Lấy token từ header

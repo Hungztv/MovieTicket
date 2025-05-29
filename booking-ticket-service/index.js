@@ -1,13 +1,14 @@
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
+const connectDB = require('./config/db');
 const bookingticketRoute = require('./src/routes/bookingticketRoute')
 const bodyParser = require('body-parser')
 const app = express()
-const port = 3000
+const port = 3002
 
 require('dotenv').config()
-
+connectDB();
 app.use(morgan('dev'))
 app.use(cors())
 app.use(bodyParser.json())
