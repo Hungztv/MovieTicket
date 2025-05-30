@@ -15,7 +15,16 @@ class BookingController {
             res.status(400).json({ message: error.message });
         }
     }
-
+    async cancelBooking(req, res) {
+        try {
+            const userId = req.user.id;
+            const bookingId = req.params.id;
+            const result = await bookingService.cancelBooking(bookingId, userId);
+            res.status(200).json(result);
+        } catch (error) {
+            res.status(400).json({ message: error.message });
+        }
+    }
     async getBookings(req, res) {
         try {
             const userId = req.user.id; // Lấy từ token qua authMiddleware

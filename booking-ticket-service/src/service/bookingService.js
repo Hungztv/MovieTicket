@@ -3,7 +3,6 @@ const Booking = require('../model/bookingModel');
 const createBooking = async (userId, bookingData) => {
     const { movieId, seatNumber } = bookingData;
 
-    // Kiểm tra dữ liệu đầu vào
     if (!movieId || !seatNumber) {
         throw new Error('Movie ID and seat number are required');
     }
@@ -12,23 +11,38 @@ const createBooking = async (userId, bookingData) => {
     const existingBooking = await Booking.findOne({
         movieId,
         seatNumber,
-        status: 'confirmed', // Chỉ kiểm tra các booking còn hiệu lực
+        status: 'confirmed',
     });
 
     if (existingBooking) {
         throw new Error(`Seat ${seatNumber} is already booked for movie ${movieId}`);
     }
 
-    // Nếu không có trùng lặp, tạo booking mới
     const booking = new Booking({
         userId,
         movieId,
         seatNumber,
         bookingDate: new Date(),
-        status: 'confirmed', // Thêm trạng thái để dễ quản lý
+        status: 'confirmed',
     });
     await booking.save();
     return booking;
+};
+
+const cancelBooking = async (bookingId, userId) => {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+        throw new Error('Booking not found');
+    }
+    if (booking.userId.toString() !== userId.toString()) {
+        throw new Error('You can only cancel your own bookings');
+    }
+    if (booking.status === 'cancelled') {
+        throw new Error('Booking is already cancelled');
+    }
+    booking.status = 'cancelled';
+    await booking.save();
+    return { message: 'Booking cancelled successfully' };
 };
 
 const getBookingsByUserId = async (userId) => {
@@ -41,6 +55,7 @@ const getAllBookings = async () => {
 
 module.exports = {
     createBooking,
+    cancelBooking,
     getBookingsByUserId,
     getAllBookings,
 };

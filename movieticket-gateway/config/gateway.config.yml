@@ -21,6 +21,9 @@ apiEndpoints:
   bookingAllBookings:
     host: localhost
     paths: '/booking-ticket/all-bookings'
+  bookingCancel:
+    host: localhost
+    paths: '/booking-ticket/cancel/*'
 
 serviceEndpoints:
   authService:
@@ -66,14 +69,14 @@ pipelines:
           action:
             serviceEndpoint: bookingService
             changeOrigin: true
-
+  
   bookingMyBookingsPipeline:
     apiEndpoints:
       - bookingMyBookings
     policies:
-      - jwt:
-          action:
-            secretOrPublicKey: ${JWT_SECRET}
+      # - jwt:
+      #     action:
+      #       secretOrPublicKey: ${JWT_SECRET}
       - proxy:
           action:
             serviceEndpoint: bookingService
@@ -83,9 +86,21 @@ pipelines:
     apiEndpoints:
       - bookingAllBookings
     policies:
-      - jwt:
+      # - jwt:
+      #     action:
+      #       secretOrPublicKey: ${JWT_SECRET}
+      - proxy:
           action:
-            secretOrPublicKey: ${JWT_SECRET}
+            serviceEndpoint: bookingService
+            changeOrigin: true
+
+  bookingCancelPipeline:
+    apiEndpoints:
+      - bookingCancel
+    policies:
+      # - jwt:
+      #     action:
+      #       secretOrPublicKey: ${JWT_SECRET}
       - proxy:
           action:
             serviceEndpoint: bookingService
