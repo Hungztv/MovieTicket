@@ -1,22 +1,19 @@
-const express = require('express')
-const morgan = require('morgan')
-const cors = require('cors')
-const connectDB = require('./config/db');
-const bookingticketRoute = require('./src/routes/bookingticketRoute')
-const bodyParser = require('body-parser')
-const app = express()
-const port = 3002
+const express = require('express');
+const mongoose = require('mongoose');
+const bookingticketRoute = require('./src/routes/bookingticketRoute');
+const authMiddleware = require('./src/middleware/authMiddleware');
+require('dotenv').config();
 
-require('dotenv').config()
-connectDB();
-app.use(morgan('dev'))
-app.use(cors())
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
+const app = express();
+app.use(express.json());
 
+app.use('/booking-ticket', authMiddleware, bookingticketRoute);
 
-app.use('/booking', bookingticketRoute);
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
-app.listen(port, () => {
-  console.log(`Example app listening on port http://localhost:${port}`)
-})
+const PORT = process.env.PORT || 3002;
+app.listen(PORT, () => {
+  console.log(`Example app listening on port http://localhost:${PORT}`);
+});

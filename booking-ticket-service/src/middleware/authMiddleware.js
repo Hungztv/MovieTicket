@@ -1,24 +1,23 @@
 const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET; // Thay bằng key bí mật của bạn
+require('dotenv').config();
 
 const authMiddleware = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    console.log('Token received in booking-ticket-service:', authHeader);
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Unauthorized: No token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    console.log('Verifying token:', token);
     try {
-        const token = req.headers['authorization']?.split(' ')[1]; // Lấy token từ header
-
-        if (!token) {
-            return res.status(401).json({ message: 'No token provided' });
-        }
-
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded; // Gắn thông tin user (id, email) vào request
-
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('Decoded user:', decoded);
+        req.user = decoded;
         next();
     } catch (error) {
-        if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({ message: 'Token expired' });
-        }
-        return res.status(401).json({ message: 'Invalid token', error: error.message });
+        console.log('JWT verification error:', error.message);
+        return res.status(401).json({ message: 'Unauthorized: Invalid token' });
     }
 };
 
