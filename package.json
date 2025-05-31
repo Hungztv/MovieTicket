@@ -2,12 +2,13 @@
     "name": "movieticket-app",
     "version": "1.0.0",
     "description": "Microservice application for movie ticket booking and management",
-    "scripts": {
-        "dev": "concurrently \"npm run start:auth\" \"npm run start:booking\" \"npm run start:gateway\"",
-        "start:auth": "cd auth-service && npm start",
-        "start:booking": "cd booking-ticket-service && npm start",
-        "start:gateway": "cd movieticket-gateway && npm start"
-    },
+   "scripts": {
+  "dev": "concurrently \"npm run start:auth\" \"npm run start:booking\" \"npm run start:gateway\" \"npm run start:theater\"",
+  "start:auth": "cd auth-service && npm start",
+  "start:booking": "cd booking-ticket-service && npm start",
+  "start:gateway": "cd movieticket-gateway && npm start",
+  "start:theater": "cd theater-service && npm start"
+},
     "devDependencies": {
         "concurrently": "^8.2.2"
     },

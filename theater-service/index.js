@@ -1,8 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const theaterRoute = require('./src/Routes/theaterRoute');
 const showtimeRoute = require('./src/Routes/showtimeRoute');
-require('dotenv').config();
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
 const app = express();
 app.use(express.json());
