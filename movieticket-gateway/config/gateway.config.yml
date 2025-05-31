@@ -32,6 +32,7 @@ serviceEndpoints:
     url: 'http://localhost:3002'
 
 policies:
+  - cors
   - log
   - proxy
   - jwt

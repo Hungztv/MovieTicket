@@ -29,6 +29,7 @@ class BookingController {
         try {
             const userId = req.user.id; // Lấy từ token qua authMiddleware
             const bookings = await bookingService.getBookingsByUserId(userId);
+            console.log(bookings);
             res.status(200).json({ message: 'Bookings retrieved successfully', bookings });
         } catch (error) {
             res.status(400).json({ message: error.message });
@@ -37,10 +38,14 @@ class BookingController {
 
     async getAllBookings(req, res) {
         try {
+            // Kiểm tra quyền truy cập của người dùng
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ message: 'Access denied: Only admins can view all bookings' });
+            }
             const bookings = await bookingService.getAllBookings();
-            res.status(200).json({ message: 'All bookings retrieved successfully', bookings });
+            res.status(200).json(bookings);
         } catch (error) {
-            res.status(400).json({ message: error.message });
+            res.status(500).json({ message: error.message });
         }
     }
 }

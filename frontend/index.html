@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Ticket App</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+            const [token, setToken] = useState(localStorage.getItem('token') || '');
+            const [userRole, setUserRole] = useState(localStorage.getItem('role') || '');
+            const [isLoggedIn, setIsLoggedIn] = useState(!!token);
+            const [registerData, setRegisterData] = useState({
+                firstName: '', lastName: '', username: '', email: '', password: '', phone: '', address: ''
+            });
+            const [loginData, setLoginData] = useState({ email: '', password: '' });
+            const [bookingData, setBookingData] = useState({ movieId: '', seatNumber: '' });
+            const [myBookings, setMyBookings] = useState([]);
+            const [allBookings, setAllBookings] = useState([]);
+            const [message, setMessage] = useState('');
+
+            // Đăng ký
+            const handleRegister = async (e) => {
+                e.preventDefault();
+                console.log('Register data:', registerData);
+                try {
+                    const response = await axios.post('http://localhost:8080/auth/register', {
+                        ...registerData,
+                        role: 'user'
+                    }, {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    setMessage('Registration successful! Please login.');
+                } catch (error) {
+                    console.error('Register error:', error.response?.data || error.message);
+                    setMessage(error.response?.data?.message || 'Registration failed');
+                }
+            };
+
+            // Đăng nhập
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                console.log('Login data:', loginData);
+                try {
+                    const response = await axios.post('http://localhost:8080/auth/login', loginData, {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const { token } = response.data;
+                    const decodedToken = JSON.parse(atob(token.split('.')[1]));
+                    const role = decodedToken.role;
+                    setToken(token);
+                    setUserRole(role);
+                    setIsLoggedIn(true);
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('role', role);
+                    setMessage('Login successful!');
+                } catch (error) {
+                    console.error('Login error:', error.response?.data || error.message);
+                    setMessage(error.response?.data?.message || 'Login failed');
+                }
+            };
+
+            // Đăng xuất
+            const handleLogout = () => {
+                setToken('');
+                setUserRole('');
+                setIsLoggedIn(false);
+                localStorage.removeItem('token');
+                localStorage.removeItem('role');
+                setMyBookings([]);
+                setAllBookings([]);
+                setMessage('Logged out successfully');
+            };
+
+            // Đặt vé
+            const handleBooking = async (e) => {
+                e.preventDefault();
+                try {
+                    const response = await axios.post('http://localhost:8080/booking-ticket/create', bookingData, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    setMessage('Booking created successfully!');
+                    fetchMyBookings(token);
+                } catch (error) {
+                    console.error('Booking error:', error.response?.data || error.message);
+                    setMessage(error.response?.data?.message || 'Booking failed');
+                }
+            };
+
+            // Hủy vé
+            const handleCancelBooking = async (bookingId) => {
+                try {
+                    const response = await axios.put(`http://localhost:8080/booking-ticket/cancel/${bookingId}`, {}, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    setMessage(response.data.message);
+                    fetchMyBookings(token);
+                    if (userRole === 'admin') fetchAllBookings(token);
+                } catch (error) {
+                    setMessage(error.response?.data?.message || 'Cancel booking failed');
+                }
+            };
+
+            // Lấy danh sách vé của người dùng
+            const fetchMyBookings = async (tokenToUse) => {
+                if (!tokenToUse) {
+                    setMessage('No token found. Please login again.');
+                    return;
+                }
+                try {
+                    console.log('Fetching my bookings with token:', tokenToUse);
+                    const response = await axios.get('http://localhost:8080/booking-ticket/my-bookings', {
+                        headers: { Authorization: `Bearer ${tokenToUse}` }
+                    });
+                    console.log('My bookings response:', response.data.bookings);
+                    setMyBookings(response.data.bookings || []);
+                    if ((response.data.bookings || []).length === 0) {
+                        setMessage('No confirmed bookings found for this user.');
+                    } else {
+                        setMessage('');
+                    }
+                } catch (error) {
+                    console.error('Fetch my bookings error:', error.response?.data || error.message);
+                    setMessage(error.response?.data?.message || 'Failed to fetch my bookings');
+                }
+            };
+
+            // Lấy danh sách tất cả vé (chỉ admin)
+            const fetchAllBookings = async (tokenToUse) => {
+                try {
+                    const response = await axios.get('http://localhost:8080/booking-ticket/all-bookings', {
+                        headers: { Authorization: `Bearer ${tokenToUse}` }
+                    });
+                    console.log('All bookings response:', response.data);
+                    setAllBookings(response.data || []);
+                } catch (error) {
+                    console.error('Fetch all bookings error:', error.response?.data || error.message);
+                    setMessage(error.response?.data?.message || 'Failed to fetch all bookings');
+                }
+            };
+
+            // Gọi API khi token thay đổi
+            useEffect(() => {
+                if (token) {
+                    setIsLoggedIn(true);
+                } else {
+                    setIsLoggedIn(false);
+                    setMyBookings([]);
+                    setAllBookings([]);
+                }
+            }, [token]);
+
+            useEffect(() => {
+                if (isLoggedIn && token) {
+                    fetchMyBookings(token);
+                    if (userRole === 'admin') {
+                        fetchAllBookings(token);
+                    }
+                }
+            }, [isLoggedIn, userRole]);
+
+            return (
+                <div className="container mx-auto p-4">
+                    <h1 className="text-3xl font-bold mb-4">Movie Ticket App</h1>
+                    {message && <p className="text-red-500 mb-4">{message}</p>}
+
+                    {!isLoggedIn ? (
+                        <div className="flex gap-4">
+                            {/* Đăng ký */}
+                            <div className="w-1/2 p-4 border rounded">
+                                <h2 className="text-xl font-semibold mb-2">Register</h2>
+                                <form onSubmit={handleRegister} className="flex flex-col gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="First Name"
+                                        className="border p-2 rounded"
+                                        value={registerData.firstName}
+                                        onChange={(e) => setRegisterData({ ...registerData, firstName: e.target.value })}
+                                        required
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Last Name"
+                                        className="border p-2 rounded"
+                                        value={registerData.lastName}
+                                        onChange={(e) => setRegisterData({ ...registerData, lastName: e.target.value })}
+                                        required
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Username"
+                                        className="border p-2 rounded"
+                                        value={registerData.username}
+                                        onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                                        required
+                                    />
+                                    <input
+                                        type="email"
+                                        placeholder="Email"
+                                        className="border p-2 rounded"
+                                        value={registerData.email}
+                                        onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                                        required
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Password"
+                                        className="border p-2 rounded"
+                                        value={registerData.password}
+                                        onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                                        required
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Phone"
+                                        className="border p-2 rounded"
+                                        value={registerData.phone}
+                                        onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Address"
+                                        className="border p-2 rounded"
+                                        value={registerData.address}
+                                        onChange={(e) => setRegisterData({ ...registerData, address: e.target.value })}
+                                    />
+                                    <button type="submit" className="bg-blue-500 text-white p-2 rounded">Register</button>
+                                </form>
+                            </div>
+
+                            {/* Đăng nhập */}
+                            <div className="w-1/2 p-4 border rounded">
+                                <h2 className="text-xl font-semibold mb-2">Login</h2>
+                                <form onSubmit={handleLogin} className="flex flex-col gap-2">
+                                    <input
+                                        type="email"
+                                        placeholder="Email"
+                                        className="border p-2 rounded"
+                                        value={loginData.email}
+                                        onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                                        required
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Password"
+                                        className="border p-2 rounded"
+                                        value={loginData.password}
+                                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                                        required
+                                    />
+                                    <button type="submit" className="bg-blue-500 text-white p-2 rounded">Login</button>
+                                </form>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-semibold">Welcome, {userRole === 'admin' ? 'Admin' : 'User'}!</h2>
+                                <button onClick={handleLogout} className="bg-red-500 text-white p-2 rounded">Logout</button>
+                            </div>
+
+                            {/* Đặt vé */}
+                            <div className="mb-8 p-4 border rounded">
+                                <h2 className="text-xl font-semibold mb-2">Create Booking</h2>
+                                <form onSubmit={handleBooking} className="flex flex-col gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Movie ID (e.g., MOV002)"
+                                        className="border p-2 rounded"
+                                        value={bookingData.movieId}
+                                        onChange={(e) => setBookingData({ ...bookingData, movieId: e.target.value })}
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Seat Number (e.g., B2)"
+                                        className="border p-2 rounded"
+                                        value={bookingData.seatNumber}
+                                        onChange={(e) => setBookingData({ ...bookingData, seatNumber: e.target.value })}
+                                    />
+                                    <button type="submit" className="bg-green-500 text-white p-2 rounded">Book Ticket</button>
+                                </form>
+                            </div>
+
+                            {/* Danh sách vé của người dùng */}
+                            <div className="mb-8">
+                                <h2 className="text-xl font-semibold mb-2">My Bookings</h2>
+                                {Array.isArray(myBookings) && myBookings.length > 0 ? (
+                                    <ul className="border rounded p-4">
+                                        {myBookings.map((booking, index) => (
+                                            <li key={booking._id || index} className="flex justify-between items-center p-2 border-b">
+                                                <span>Movie: {booking.movieId || 'N/A'} | Seat: {booking.seatNumber || 'N/A'} | Date: {new Date(booking.bookingDate).toLocaleString()}</span>
+                                                <button
+                                                    onClick={() => handleCancelBooking(booking._id)}
+                                                    className="bg-red-500 text-white p-1 rounded"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p>No bookings found.</p>
+                                )}
+                            </div>
+
+                            {/* Danh sách tất cả vé (chỉ admin) */}
+                            {userRole === 'admin' && (
+                                <div>
+                                    <h2 className="text-xl font-semibold mb-2">All Bookings (Admin Only)</h2>
+                                    {Array.isArray(allBookings) && allBookings.length > 0 ? (
+                                        <ul className="border rounded p-4">
+                                            {allBookings.map((booking, index) => (
+                                                <li key={booking._id || index} className="p-2 border-b">
+                                                    <span>User: {booking.userId || 'N/A'} | Movie: {booking.movieId || 'N/A'} | Seat: {booking.seatNumber || 'N/A'} | Date: {new Date(booking.bookingDate).toLocaleString()}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p>No bookings found.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
