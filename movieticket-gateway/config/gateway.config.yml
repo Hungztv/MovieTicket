@@ -24,13 +24,19 @@ apiEndpoints:
   bookingCancel:
     host: localhost
     paths: '/booking-ticket/cancel/*'
-
+  theaterApi:
+    host: localhost
+    paths: '/theater/*'
+  showtimeApi:
+    host: localhost
+    paths: '/showtime/*'
 serviceEndpoints:
   authService:
     url: 'http://localhost:3001'
   bookingService:
     url: 'http://localhost:3002'
-
+  theaterService:
+    url: 'http://localhost:3003'
 policies:
   - cors
   - log
@@ -105,4 +111,31 @@ pipelines:
       - proxy:
           action:
             serviceEndpoint: bookingService
+            changeOrigin: true
+  theaterPipeline:
+    apiEndpoints:
+      - theaterApi
+    policies:
+      - cors:
+          action:
+            origin: '*'
+            methods: 'GET,POST,PUT,DELETE'
+            allowedHeaders: 'Content-Type,Authorization'
+      - proxy:
+          action:
+            serviceEndpoint: theaterService
+            changeOrigin: true
+
+  showtimePipeline:
+    apiEndpoints:
+      - showtimeApi
+    policies:
+      - cors:
+          action:
+            origin: '*'
+            methods: 'GET,POST,PUT,DELETE'
+            allowedHeaders: 'Content-Type,Authorization'
+      - proxy:
+          action:
+            serviceEndpoint: theaterService
             changeOrigin: true

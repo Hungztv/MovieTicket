@@ -26,9 +26,12 @@
                 firstName: '', lastName: '', username: '', email: '', password: '', phone: '', address: ''
             });
             const [loginData, setLoginData] = useState({ email: '', password: '' });
-            const [bookingData, setBookingData] = useState({ movieId: '', seatNumber: '' });
+            const [bookingData, setBookingData] = useState({ movieId: '', seatNumber: '', showtimeId: '' });
             const [myBookings, setMyBookings] = useState([]);
             const [allBookings, setAllBookings] = useState([]);
+            const [theaters, setTheaters] = useState([]);
+            const [showtimes, setShowtimes] = useState([]);
+            const [selectedTheater, setSelectedTheater] = useState('');
             const [message, setMessage] = useState('');
 
             // Đăng ký
@@ -81,21 +84,42 @@
                 localStorage.removeItem('role');
                 setMyBookings([]);
                 setAllBookings([]);
+                setTheaters([]);
+                setShowtimes([]);
                 setMessage('Logged out successfully');
             };
 
             // Đặt vé
             const handleBooking = async (e) => {
                 e.preventDefault();
+                console.log('Booking data:', bookingData);
+
+                // Kiểm tra dữ liệu chặt chẽ hơn
+                if (!bookingData.showtimeId || bookingData.showtimeId === '' || !bookingData.seatNumber || bookingData.seatNumber === '') {
+                    setMessage('Please select both a valid showtime and a seat before booking.');
+                    return;
+                }
+
                 try {
-                    const response = await axios.post('http://localhost:8080/booking-ticket/create', bookingData, {
-                        headers: { Authorization: `Bearer ${token}` }
+                    const selectedShowtime = showtimes.find(s => s._id === bookingData.showtimeId);
+                    const payload = {
+                        showtimeId: bookingData.showtimeId,
+                        seatNumber: bookingData.seatNumber,
+                        movieId: selectedShowtime?.movieId || ''
+                    };
+                    console.log('Sending booking payload:', payload);
+                    const response = await axios.post('http://localhost:8080/booking-ticket/create', payload, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`
+                        }
                     });
                     setMessage('Booking created successfully!');
                     fetchMyBookings(token);
+                    setBookingData({ showtimeId: '', seatNumber: '' }); // Reset form sau khi đặt thành công
                 } catch (error) {
-                    console.error('Booking error:', error.response?.data || error.message);
-                    setMessage(error.response?.data?.message || 'Booking failed');
+                    console.error('Booking error:', error.response?.data?.message || error.message);
+                    setMessage(error.response?.data?.message || 'Booking failed. Please try again.');
                 }
             };
 
@@ -108,8 +132,45 @@
                     setMessage(response.data.message);
                     fetchMyBookings(token);
                     if (userRole === 'admin') fetchAllBookings(token);
+                    await fetchShowtimes(selectedTheater);
                 } catch (error) {
                     setMessage(error.response?.data?.message || 'Cancel booking failed');
+                }
+            };
+
+            // Lấy danh sách rạp
+            const fetchTheaters = async () => {
+                try {
+                    const response = await axios.get('http://localhost:8080/theater/', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    console.log('Theaters response:', response.data);
+                    setTheaters(response.data || []);
+                } catch (error) {
+                    console.error('Fetch theaters error:', error.response?.data || error.message);
+                    setMessage(error.response?.data?.message || 'Failed to fetch theaters');
+                }
+            };
+
+            // Lấy danh sách suất chiếu
+            const fetchShowtimes = async (theaterId) => {
+                try {
+                    const url = theaterId ? `http://localhost:8080/showtime/?theaterId=${theaterId}` : 'http://localhost:8080/showtime/';
+                    const response = await axios.get(url, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: token ? `Bearer ${token}` : undefined
+                        }
+                    });
+                    console.log('Showtimes response:', response.data);
+                    if (Array.isArray(response.data) && response.data.length === 0) {
+                        setMessage('No showtimes available for this theater.');
+                    }
+                    setShowtimes(response.data || []);
+                } catch (error) {
+                    console.error('Fetch showtimes error:', error.response?.data?.message || error.message);
+                    setMessage(error.response?.data?.message || 'Failed to fetch showtimes. Please ensure the server is running and data exists.');
+                    setShowtimes([]);
                 }
             };
 
@@ -159,17 +220,26 @@
                     setIsLoggedIn(false);
                     setMyBookings([]);
                     setAllBookings([]);
+                    setTheaters([]);
+                    setShowtimes([]);
                 }
             }, [token]);
 
             useEffect(() => {
                 if (isLoggedIn && token) {
                     fetchMyBookings(token);
-                    if (userRole === 'admin') {
-                        fetchAllBookings(token);
-                    }
+                    if (userRole === 'admin') fetchAllBookings(token);
+                    fetchTheaters();
                 }
             }, [isLoggedIn, userRole]);
+
+            useEffect(() => {
+                if (selectedTheater) {
+                    fetchShowtimes(selectedTheater);
+                } else {
+                    fetchShowtimes(); // Lấy tất cả showtimes nếu không chọn rạp
+                }
+            }, [selectedTheater]);
 
             return (
                 <div className="container mx-auto p-4">
@@ -271,25 +341,88 @@
                                 <button onClick={handleLogout} className="bg-red-500 text-white p-2 rounded">Logout</button>
                             </div>
 
+                            {/* Danh sách rạp chiếu */}
+                            <div className="mb-8 p-4 border rounded">
+                                <h2 className="text-xl font-semibold mb-2">Theaters</h2>
+                                {Array.isArray(theaters) && theaters.length > 0 ? (
+                                    <div className="flex flex-col gap-2">
+                                        <select
+                                            className="border p-2 rounded"
+                                            value={selectedTheater}
+                                            onChange={(e) => setSelectedTheater(e.target.value)}
+                                        >
+                                            <option value="">Select a theater</option>
+                                            {theaters.map(theater => (
+                                                <option key={theater._id} value={theater._id}>
+                                                    {theater.name} - {theater.location}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <p>No theaters found.</p>
+                                )}
+                            </div>
+
+                            {/* Danh sách suất chiếu */}
+                            <div className="mb-8 p-4 border rounded">
+                                <h2 className="text-xl font-semibold mb-2">Showtimes</h2>
+                                {Array.isArray(showtimes) && showtimes.length > 0 ? (
+                                    <ul className="border rounded p-4">
+                                        {showtimes.map(showtime => (
+                                            <li key={showtime._id} className="p-2 border-b">
+                                                <span>Movie: {showtime.movieId} | Start: {new Date(showtime.startTime).toLocaleString()} | Available Seats: {showtime.availableSeats.join(', ')}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p>No showtimes found.</p>
+                                )}
+                            </div>
+
                             {/* Đặt vé */}
                             <div className="mb-8 p-4 border rounded">
                                 <h2 className="text-xl font-semibold mb-2">Create Booking</h2>
                                 <form onSubmit={handleBooking} className="flex flex-col gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Movie ID (e.g., MOV002)"
+                                    <select
                                         className="border p-2 rounded"
-                                        value={bookingData.movieId}
-                                        onChange={(e) => setBookingData({ ...bookingData, movieId: e.target.value })}
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Seat Number (e.g., B2)"
+                                        value={bookingData.showtimeId}
+                                        onChange={(e) => setBookingData({ ...bookingData, showtimeId: e.target.value, seatNumber: '' })}
+                                        required
+                                    >
+                                        <option value="">Select a showtime</option>
+                                        {showtimes.map(showtime => (
+                                            <option key={showtime._id} value={showtime._id}>
+                                                Movie: {showtime.movieId} | Start: {new Date(showtime.startTime).toLocaleString()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <select
                                         className="border p-2 rounded"
                                         value={bookingData.seatNumber}
                                         onChange={(e) => setBookingData({ ...bookingData, seatNumber: e.target.value })}
-                                    />
-                                    <button type="submit" className="bg-green-500 text-white p-2 rounded">Book Ticket</button>
+                                        disabled={!bookingData.showtimeId || showtimes.find(showtime => showtime._id === bookingData.showtimeId)?.availableSeats?.length === 0}
+                                        required
+                                    >
+                                        <option value="">Select a seat</option>
+                                        {bookingData.showtimeId && showtimes
+                                            .find(showtime => showtime._id === bookingData.showtimeId)?.availableSeats?.length > 0 ? (
+                                            showtimes
+                                                .find(showtime => showtime._id === bookingData.showtimeId)
+                                                .availableSeats.map(seat => (
+                                                    <option key={seat} value={seat}>{seat}</option>
+                                                ))
+                                        ) : (
+                                            <option value="" disabled>No seats available</option>
+                                        )}
+                                    </select>
+                                    <button
+                                        type="submit"
+                                        className={`p-2 rounded text-white ${bookingData.showtimeId && bookingData.showtimeId !== '' && bookingData.seatNumber && bookingData.seatNumber !== '' ? 'bg-green-500' : 'bg-gray-400 cursor-not-allowed'}`}
+                                        disabled={!(bookingData.showtimeId && bookingData.showtimeId !== '' && bookingData.seatNumber && bookingData.seatNumber !== '')}
+                                    >
+                                        Book Ticket
+                                    </button>
                                 </form>
                             </div>
 
