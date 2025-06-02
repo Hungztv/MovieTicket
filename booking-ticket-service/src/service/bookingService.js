@@ -49,6 +49,11 @@ const createBooking = async (userId, bookingData) => {
 };
 
 const cancelBooking = async (bookingId, userId) => {
+    console.log('Canceling booking with ID:', bookingId, 'for user:', userId);
+    if (!bookingId || !userId) {
+        throw new Error('Booking ID and user ID are required');
+    }
+
     const booking = await Booking.findById(bookingId);
     if (!booking) {
         throw new Error('Booking not found');
@@ -62,31 +67,29 @@ const cancelBooking = async (bookingId, userId) => {
         throw new Error('Booking already cancelled');
     }
 
-    // 1. Hủy booking
+    // Gọi API để cập nhật showtime trước
+    console.log('Updating showtime:', booking.showtimeId, 'seat:', booking.seatNumber);
+    try {
+        const showtimeResponse = await axios.put(`http://localhost:8080/showtime/${booking.showtimeId}/update-seats`, {
+            bookedSeats: [booking.seatNumber],
+            action: 'remove'
+        }, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        console.log('Showtime updated:', showtimeResponse.data);
+    } catch (showtimeError) {
+        console.error('Showtime update failed:', showtimeError.response?.data || showtimeError.message);
+        throw new Error(`Failed to update showtime: ${showtimeError.response?.data?.message || showtimeError.message}`);
+    }
+
+    // Cập nhật booking sau khi showtime thành công
     booking.status = 'cancelled';
     await booking.save();
-
-    // 2. Lấy showtime
-    const showtime = await Showtime.findById(booking.showtimeId);
-    if (!showtime) {
-        throw new Error('Showtime not found');
-    }
-
-    // 3. Trả lại seat vào availableSeats (nếu chưa có)
-    if (!showtime.availableSeats.includes(booking.seatNumber)) {
-        showtime.availableSeats.push(booking.seatNumber);
-    }
-
-    // 4. Xóa khỏi bookedSeats nếu đang có
-    if (Array.isArray(showtime.bookedSeats)) {
-        showtime.bookedSeats = showtime.bookedSeats.filter(seat => seat !== booking.seatNumber);
-    }
-
-    // 5. Lưu lại showtime
-    await showtime.save();
+    console.log('Booking cancelled successfully for ID:', bookingId);
 
     return { message: 'Booking cancelled successfully' };
 };
+
 
 const getBookingsByUserId = async (userId) => {
     return await Booking.find({ userId, status: 'confirmed' });
