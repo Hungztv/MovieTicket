@@ -2,17 +2,28 @@ const showtimeRepository = require('../repository/showtimeRepository');
 const theaterService = require('./theaterService');
 
 const createShowtime = async (showtimeData) => {
-    const { movieId, theaterId, startTime, availableSeats } = showtimeData;
-    if (!movieId || !theaterId || !startTime || !availableSeats) {
-        throw new Error('Movie ID, theater ID, start time, and available seats are required');
+    const { movieId, theaterId, startTime } = showtimeData;
+    if (!movieId || !theaterId || !startTime) {
+        throw new Error('Movie ID, theater ID, and start time are required');
     }
+
     const theater = await theaterService.getTheaterById(theaterId);
     if (!theater) {
         throw new Error('Theater not found');
     }
-    return await showtimeRepository.createShowtime(showtimeData);
-};
 
+    // Lấy danh sách ghế từ rạp làm availableSeats mặc định
+    const availableSeats = theater.seats;
+    const bookedSeats = [];
+
+    return await showtimeRepository.createShowtime({
+        movieId,
+        theaterId,
+        startTime,
+        availableSeats,
+        bookedSeats,
+    });
+};
 const getShowtimeById = async (id) => {
     const showtime = await showtimeRepository.getShowtimeById(id);
     if (!showtime) {

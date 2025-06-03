@@ -69,9 +69,9 @@
             const [loginData, setLoginData] = useState({ email: '', password: '' });
             const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
             const [bookingData, setBookingData] = useState({ movieId: '', seatNumber: '', showtimeId: '' });
-            const [theaterData, setTheaterData] = useState({ name: '', location: '', capacity: '' });
+            const [theaterData, setTheaterData] = useState({ name: '', location: '', capacity: '', seats: [] });
             const [showtimeData, setShowtimeData] = useState({
-                movieId: '', theaterId: '', startTime: '', availableSeats: '', bookedSeats: ''
+                movieId: '', theaterId: '', startTime: ''
             });
             const [movies, setMovies] = useState([]);
             const [myBookings, setMyBookings] = useState([]);
@@ -90,6 +90,22 @@
                 setModalMessage(msg);
                 setShowModal(true);
                 setTimeout(() => setShowModal(false), 3000);
+            };
+
+            // Hàm tạo danh sách ghế dựa trên capacity (giống backend)
+            const generateSeats = (capacity) => {
+                const seats = [];
+                const rows = Math.ceil(capacity / 10); // Mỗi hàng 10 ghế
+                const rowLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+                for (let i = 0; i < rows; i++) {
+                    const rowLetter = rowLetters[i];
+                    const seatsInRow = Math.min(10, capacity - i * 10);
+                    for (let j = 1; j <= seatsInRow; j++) {
+                        seats.push(`${rowLetter}${j}`);
+                    }
+                }
+                return seats;
             };
 
             const handleRegister = async (e) => {
@@ -176,7 +192,7 @@
                         }
                     });
                     showMessage('Thêm rạp thành công!');
-                    setTheaterData({ name: '', location: '', capacity: '' });
+                    setTheaterData({ name: '', location: '', capacity: '', seats: [] });
                     fetchTheaters();
                 } catch (error) {
                     showMessage(error.response?.data?.message || 'Thêm rạp thất bại.');
@@ -189,22 +205,36 @@
                 e.preventDefault();
                 setIsLoading(true);
                 try {
-                    const payload = {
-                        ...showtimeData,
-                        availableSeats: showtimeData.availableSeats.split(',').map(seat => seat.trim()),
-                        bookedSeats: showtimeData.bookedSeats ? showtimeData.bookedSeats.split(',').map(seat => seat.trim()) : []
-                    };
-                    const response = await axios.post('http://localhost:8080/showtime/', payload, {
+                    const response = await axios.post('http://localhost:8080/showtime/', showtimeData, {
                         headers: {
                             'Content-Type': 'application/json',
                             Authorization: `Bearer ${token}`
                         }
                     });
                     showMessage('Thêm suất chiếu thành công!');
-                    setShowtimeData({ movieId: '', theaterId: '', startTime: '', availableSeats: '', bookedSeats: '' });
+                    setShowtimeData({ movieId: '', theaterId: '', startTime: '' });
                     fetchShowtimes(selectedTheater);
                 } catch (error) {
                     showMessage(error.response?.data?.message || 'Thêm suất chiếu thất bại.');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleConfirmBooking = async (bookingId) => {
+                setIsLoading(true);
+                try {
+                    const response = await axios.post('http://localhost:8080/booking-ticket/confirm', { bookingId }, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`
+                        }
+                    });
+                    showMessage('Xác nhận vé thành công!');
+                    fetchMyBookings(token);
+                    if (userRole === 'admin') fetchAllBookings(token);
+                } catch (error) {
+                    showMessage(error.response?.data?.message || 'Xác nhận vé thất bại.');
                 } finally {
                     setIsLoading(false);
                 }
@@ -224,15 +254,16 @@
                         seatNumber: bookingData.seatNumber,
                         movieId: selectedShowtime?.movieId || ''
                     };
-                    await axios.post('http://localhost:8080/booking-ticket/create', payload, {
+                    const response = await axios.post('http://localhost:8080/booking-ticket/create', payload, {
                         headers: {
                             'Content-Type': 'application/json',
                             Authorization: `Bearer ${token}`
                         }
                     });
-                    showMessage('Đặt vé thành công!');
+                    showMessage('Đặt vé thành công! Vui lòng xác nhận trong 1 phút.');
                     fetchMyBookings(token);
                     setBookingData({ movieId: '', seatNumber: '', showtimeId: '' });
+                    fetchShowtimes(selectedTheater);
                 } catch (error) {
                     showMessage(error.response?.data?.message || 'Đặt vé thất bại.');
                 } finally {
@@ -280,7 +311,7 @@
                     setMovies(response.data || []);
                 } catch (error) {
                     showMessage(error.response?.data?.message || 'Không thể tải danh sách phim.');
-                    setMovies([]); // Đặt movies về mảng rỗng nếu lỗi
+                    setMovies([]);
                 } finally {
                     setIsLoading(false);
                 }
@@ -347,7 +378,7 @@
                 if (token) {
                     setIsLoggedIn(true);
                     fetchTheaters();
-                    fetchMovies(); // Giữ để hiển thị tên phim trong danh sách suất chiếu
+                    fetchMovies();
                     fetchMyBookings(token);
                     if (userRole === 'admin') fetchAllBookings(token);
                 } else {
@@ -641,9 +672,17 @@
                                                         className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                                         placeholder="Nhập sức chứa (VD: 100)"
                                                         value={theaterData.capacity}
-                                                        onChange={(e) => setTheaterData({ ...theaterData, capacity: e.target.value })}
+                                                        onChange={(e) => {
+                                                            const capacity = parseInt(e.target.value) || 0;
+                                                            const seats = generateSeats(capacity);
+                                                            setTheaterData({ ...theaterData, capacity, seats });
+                                                        }}
                                                         required
                                                     />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Danh sách ghế (xem trước)</label>
+                                                    <p className="mt-1 text-sm text-gray-600">{theaterData.seats.join(', ')}</p>
                                                 </div>
                                                 <button
                                                     type="submit"
@@ -692,27 +731,6 @@
                                                         value={showtimeData.startTime}
                                                         onChange={(e) => setShowtimeData({ ...showtimeData, startTime: e.target.value })}
                                                         required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Ghế trống (phân tách bằng dấu phẩy)</label>
-                                                    <input
-                                                        type="text"
-                                                        className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                                        placeholder="VD: A1,A2,B1,B2"
-                                                        value={showtimeData.availableSeats}
-                                                        onChange={(e) => setShowtimeData({ ...showtimeData, availableSeats: e.target.value })}
-                                                        required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Ghế đã đặt (phân tách bằng dấu phẩy, để trống nếu chưa có)</label>
-                                                    <input
-                                                        type="text"
-                                                        className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                                        placeholder="VD: C1,C2 (tùy chọn)"
-                                                        value={showtimeData.bookedSeats}
-                                                        onChange={(e) => setShowtimeData({ ...showtimeData, bookedSeats: e.target.value })}
                                                     />
                                                 </div>
                                                 <button
@@ -820,14 +838,26 @@
                                                         <p><strong>Phim:</strong> {booking.movieId || 'N/A'}</p>
                                                         <p><strong>Ghế:</strong> {booking.seatNumber || 'N/A'}</p>
                                                         <p><strong>Ngày đặt:</strong> {new Date(booking.bookingDate).toLocaleString()}</p>
+                                                        <p><strong>Trạng thái:</strong> {booking.status || 'N/A'}</p>
                                                     </div>
-                                                    <button
-                                                        onClick={() => handleCancelBooking(booking._id)}
-                                                        className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                                                        disabled={isLoading}
-                                                    >
-                                                        Hủy
-                                                    </button>
+                                                    <div className="flex space-x-2">
+                                                        {booking.status === 'pending' && (
+                                                            <button
+                                                                onClick={() => handleConfirmBooking(booking._id)}
+                                                                className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                                                                disabled={isLoading}
+                                                            >
+                                                                Xác nhận
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleCancelBooking(booking._id)}
+                                                            className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                                                            disabled={isLoading || booking.status === 'cancelled'}
+                                                        >
+                                                            Hủy
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -847,6 +877,7 @@
                                                         <p><strong>Phim:</strong> {booking.movieId || 'N/A'}</p>
                                                         <p><strong>Ghế:</strong> {booking.seatNumber || 'N/A'}</p>
                                                         <p><strong>Ngày đặt:</strong> {new Date(booking.bookingDate).toLocaleString()}</p>
+                                                        <p><strong>Trạng thái:</strong> {booking.status || 'N/A'}</p>
                                                     </div>
                                                 ))}
                                             </div>

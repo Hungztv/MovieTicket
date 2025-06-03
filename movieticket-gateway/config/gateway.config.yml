@@ -30,7 +30,12 @@ apiEndpoints:
   showtimeApi:
     host: localhost
     paths: '/showtime/*'
-
+  paymentInitiate:
+    host: localhost
+    paths: '/payment/initiate'
+  paymentConfirm:
+    host: localhost
+    paths: '/payment/confirm'
 serviceEndpoints:
   authService:
     url: 'http://localhost:3001'
@@ -38,6 +43,8 @@ serviceEndpoints:
     url: 'http://localhost:3002'
   theaterService:
     url: 'http://localhost:3003'
+  paymentService:
+    url: 'http://localhost:3004'
 
 policies:
   - cors
@@ -140,4 +147,27 @@ pipelines:
       - proxy:
           action:
             serviceEndpoint: theaterService
+            changeOrigin: true
+  paymentInitiatePipeline:
+    apiEndpoints:
+      - paymentInitiate
+    policies:
+      # - jwt:
+      #     action:
+      #       secretOrPublicKey: ${JWT_SECRET}
+      - proxy:
+          action:
+            serviceEndpoint: paymentService
+            changeOrigin: true
+
+  paymentConfirmPipeline:
+    apiEndpoints:
+      - paymentConfirm
+    policies:
+      # - jwt:
+      #     action:
+      #       secretOrPublicKey: ${JWT_SECRET}
+      - proxy:
+          action:
+            serviceEndpoint: paymentService
             changeOrigin: true

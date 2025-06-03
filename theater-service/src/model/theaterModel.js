@@ -1,10 +1,22 @@
 const mongoose = require('mongoose');
 
 const theaterSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    location: { type: String, required: true },
-    capacity: { type: Number, required: true },
+    name: {
+        type: String,
+        required: true,
+    },
+    location: {
+        type: String,
+        required: true,
+    },
+    capacity: {
+        type: Number,
+        required: true,
+    },
+    seats: {
+        type: [String],
+        required: true,
+    },
 }, { timestamps: true });
 
-const Theater = mongoose.model('Theater', theaterSchema);
-module.exports = Theater;
+module.exports = mongoose.model('Theater', theaterSchema);
