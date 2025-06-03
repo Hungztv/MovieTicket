@@ -39,8 +39,8 @@ const updateShowtime = async (req, res) => {
 
 const updateShowtimeSeats = async (req, res) => {
     try {
-        const { bookedSeats } = req.body;
-        const showtime = await showtimeService.updateShowtimeSeats(req.params.id, bookedSeats);
+        const { bookedSeats, action } = req.body; // Nhận action từ body
+        const showtime = await showtimeService.updateShowtimeSeats(req.params.id, bookedSeats, action);
         res.status(200).json(showtime);
     } catch (error) {
         res.status(400).json({ message: error.message });

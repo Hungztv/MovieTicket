@@ -33,13 +33,27 @@ const updateShowtime = async (id, showtimeData) => {
     return await showtimeRepository.updateShowtime(id, showtimeData);
 };
 
-const updateShowtimeSeats = async (id, bookedSeats) => {
+const updateShowtimeSeats = async (id, bookedSeats, action = 'add') => {
     const showtime = await showtimeRepository.getShowtimeById(id);
     if (!showtime) {
         throw new Error('Showtime not found');
     }
-    const updatedAvailableSeats = showtime.availableSeats.filter(seat => !bookedSeats.includes(seat));
-    const updatedBookedSeats = [...new Set([...showtime.bookedSeats, ...bookedSeats])];
+
+    let updatedAvailableSeats = [...showtime.availableSeats];
+    let updatedBookedSeats = [...showtime.bookedSeats];
+
+    if (action === 'add') {
+        // Thêm ghế vào bookedSeats và xóa khỏi availableSeats
+        updatedAvailableSeats = showtime.availableSeats.filter(seat => !bookedSeats.includes(seat));
+        updatedBookedSeats = [...new Set([...showtime.bookedSeats, ...bookedSeats])];
+    } else if (action === 'remove') {
+        // Xóa ghế khỏi bookedSeats và thêm lại vào availableSeats
+        updatedBookedSeats = showtime.bookedSeats.filter(seat => !bookedSeats.includes(seat));
+        updatedAvailableSeats = [...new Set([...showtime.availableSeats, ...bookedSeats])];
+    } else {
+        throw new Error('Invalid action specified');
+    }
+
     return await showtimeRepository.updateShowtime(id, {
         availableSeats: updatedAvailableSeats,
         bookedSeats: updatedBookedSeats,
@@ -53,7 +67,18 @@ const deleteShowtime = async (id) => {
     }
     return await showtimeRepository.deleteShowtime(id);
 };
-
+const returnSeatToAvailable = async (id, seatNumber) => {
+    const showtime = await showtimeRepository.getShowtimeById(id);
+    if (!showtime) {
+        throw new Error('Showtime not found');
+    }
+    const updatedBookedSeats = showtime.bookedSeats.filter(seat => seat !== seatNumber);
+    const updatedAvailableSeats = [...new Set([...showtime.availableSeats, seatNumber])];
+    return await showtimeRepository.updateShowtime(id, {
+        availableSeats: updatedAvailableSeats,
+        bookedSeats: updatedBookedSeats,
+    });
+};
 module.exports = {
     createShowtime,
     getShowtimeById,
@@ -61,4 +86,5 @@ module.exports = {
     updateShowtime,
     updateShowtimeSeats,
     deleteShowtime,
+    returnSeatToAvailable,
 };

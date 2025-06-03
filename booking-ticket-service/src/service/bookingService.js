@@ -77,6 +77,11 @@ const cancelBooking = async (bookingId, userId) => {
             headers: { 'Content-Type': 'application/json' }
         });
         console.log('Showtime updated:', showtimeResponse.data);
+
+        // Kiểm tra phản hồi từ API
+        if (!showtimeResponse.data.availableSeats.includes(booking.seatNumber)) {
+            throw new Error('Failed to return seat to availableSeats');
+        }
     } catch (showtimeError) {
         console.error('Showtime update failed:', showtimeError.response?.data || showtimeError.message);
         throw new Error(`Failed to update showtime: ${showtimeError.response?.data?.message || showtimeError.message}`);
@@ -84,12 +89,12 @@ const cancelBooking = async (bookingId, userId) => {
 
     // Cập nhật booking sau khi showtime thành công
     booking.status = 'cancelled';
+    booking.updatedAt = Date.now();
     await booking.save();
     console.log('Booking cancelled successfully for ID:', bookingId);
 
     return { message: 'Booking cancelled successfully' };
 };
-
 
 const getBookingsByUserId = async (userId) => {
     return await Booking.find({ userId, status: 'confirmed' });
